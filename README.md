@@ -52,7 +52,7 @@ flowchart LR
 
 The first approach was direct training. Four runs (~41 GPU-hours) plateaued, with validation loss flat for 80+ epochs, so the final model was trained on pseudo-labels from a much larger teacher instead:
 
-1. **Teacher labelling.** torchvision's KeypointRCNN-ResNet50-FPN (~59.1M parameters) was run on 149,813 COCO train2017 person instances, each cropped and resized to 256×192. Joints predicted with confidence ≥ 0.5 were kept, and crops with at least 5 such joints were saved. The result was **148,238 labelled crops**, generated in about 6 hours on an RTX 3060 Laptop GPU.
+1. **Teacher labelling.** torchvision's KeypointRCNN-ResNet50-FPN (~59.1M parameters) was run on 149,813 COCO train2017 person instances, each cropped and resized to 256×192. The script was written to keep only joints predicted with confidence ≥ 0.5 and crops with at least 5 such joints, but the check reads a field that torchvision always sets to 1, so in practice all 17 joints were kept as visible (see Limitations). The result was **148,238 labelled crops**, generated in about 6 hours on an RTX 3060 Laptop GPU.
 2. **Targets.** The teacher's keypoints were re-drawn as Gaussian heatmaps (σ = 3) on a 64×48 grid, alongside normalised coordinates.
 3. **Student training.** The student is trained on these hard pseudo-labels with heatmap MSE + 5.0 × coordinate L1 loss.
 
@@ -156,7 +156,9 @@ GymPose-Lite/
 
 - **No ground-truth evaluation yet.** Accuracy is measured only against the teacher's pseudo-labels. That shows how closely the student matches the teacher, not how accurate either model is on human annotations. COCO AP and PCK have not been measured.
 - **`evaluate.py` is out of date.** It still builds a 3-channel model, so it cannot load the final 6-channel checkpoint. `test_demo.py` also targets the older 3-channel checkpoint.
-- **No ablations.** The effect of the extra Canny/skin/Sobel input channels and of the graph-refinement step has not been measured.
+- **No ablations, and the extra input channels never trained.** Backbone blocks 0–3 stay frozen during distillation, so the weights of the widened first convolution that read the Canny, skin-mask and Sobel channels keep their random initial values. Those channels therefore pass through untrained weights. The effect of the graph-refinement step has not been measured either.
+- **Confidence filter had no effect.** `generate_teacher.py` intended to drop low-confidence joints (< 0.5) and sparse crops (< 5 joints), but it reads a visibility field that torchvision always sets to 1, so every joint was kept as a training target.
+- **Angles are measured on the resized crop.** Joint angles are computed in the 256×192 crop rather than the original frame, which distorts them when the person's bounding box has a different aspect ratio (wide push-up crops are affected most).
 - **Rule-based feedback.** Form checks are fixed thresholds on 2D joint angles, not learned. Only the largest detected person is tracked.
 - **Not real-time end to end.** The pose network alone runs at ~30 FPS on a laptop CPU, but the full app processes uploaded video offline at about 7.5 FPS.
 
