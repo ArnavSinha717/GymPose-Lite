@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GymPose-Lite</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    min-height: 100vh;
+}
+.container { max-width: 900px; margin: 0 auto; padding: 20px; }
+h1 { text-align: center; font-size: 2em; margin: 30px 0 5px; color: #10B981; }
+.subtitle { text-align: center; color: #94a3b8; margin-bottom: 30px; font-size: 0.95em; }
+.card {
+    background: #1a1d27;
+    border: 1px solid #2d3348;
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 20px;
+}
+.upload-area {
+    border: 2px dashed #3d4460;
+    border-radius: 10px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+}
+.upload-area:hover { border-color: #10B981; background: rgba(16,185,129,0.05); }
+.upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.upload-icon { font-size: 3em; margin-bottom: 10px; }
+.upload-text { color: #94a3b8; }
+.upload-text strong { color: #10B981; }
+.file-name { margin-top: 10px; color: #10B981; font-weight: 600; display: none; }
+.controls { display: flex; gap: 15px; margin-top: 20px; align-items: center; }
+select {
+    flex: 1; padding: 12px 16px; background: #0f1117; color: #e2e8f0;
+    border: 1px solid #3d4460; border-radius: 8px; font-size: 1em;
+}
+button {
+    padding: 12px 30px; background: #10B981; color: #0f1117; border: none;
+    border-radius: 8px; font-size: 1em; font-weight: 700; cursor: pointer;
+}
+button:hover { background: #059669; }
+button:disabled { background: #2d3348; color: #64748b; cursor: not-allowed; }
+.progress-section { display: none; margin-top: 20px; }
+.progress-bar-bg { width: 100%; height: 8px; background: #2d3348; border-radius: 4px; overflow: hidden; }
+.progress-bar { height: 100%; background: #10B981; border-radius: 4px; width: 0%; transition: width 0.3s; }
+.progress-text { text-align: center; margin-top: 8px; color: #94a3b8; font-size: 0.9em; }
+.error-msg { color: #ef4444; text-align: center; margin-top: 10px; display: none; }
+
+/* Results */
+.result-section { display: none; }
+.main-video { width: 100%; border-radius: 10px; background: #000; margin-bottom: 15px; }
+.download-row { text-align: center; margin-bottom: 20px; }
+.download-btn {
+    display: inline-block; padding: 10px 24px; color: #10B981;
+    border: 1px solid #10B981; border-radius: 8px; text-decoration: none; font-weight: 600;
+}
+.download-btn:hover { background: rgba(16,185,129,0.1); }
+
+.pipeline-label { color: #94a3b8; font-size: 0.85em; margin-bottom: 12px; }
+.pipeline-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 12px;
+}
+.pipeline-card {
+    background: #0f1117;
+    border: 1px solid #2d3348;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+.pipeline-card:hover { border-color: #10B981; }
+.pipeline-card video {
+    width: 100%;
+    display: block;
+    background: #000;
+}
+.pipeline-card .label {
+    padding: 8px 12px;
+    font-size: 0.8em;
+    color: #94a3b8;
+}
+.pipeline-card .label strong { color: #10B981; }
+
+footer { text-align: center; color: #475569; padding: 20px; font-size: 0.85em; }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h1>GymPose-Lite</h1>
+    <p class="subtitle">Lightweight Gym Exercise Pose Estimation with Form Feedback</p>
+
+    <div class="card">
+        <div class="upload-area" id="uploadArea">
+            <input type="file" id="videoInput" accept="video/*">
+            <div class="upload-icon">&#9655;</div>
+            <p class="upload-text">Drop your video here or <strong>click to browse</strong></p>
+            <p class="upload-text" style="font-size:0.85em; margin-top:5px;">MP4, MOV, AVI</p>
+            <p class="file-name" id="fileName"></p>
+        </div>
+        <div class="controls">
+            <select id="exerciseSelect">
+                <option value="squat">Squat</option>
+                <option value="deadlift">Deadlift</option>
+                <option value="pushup">Push-up</option>
+            </select>
+            <button id="processBtn" onclick="processVideo()">Process</button>
+        </div>
+        <div class="progress-section" id="progressSection">
+            <div class="progress-bar-bg"><div class="progress-bar" id="progressBar"></div></div>
+            <p class="progress-text" id="progressText">Processing... 0%</p>
+        </div>
+        <p class="error-msg" id="errorMsg"></p>
+    </div>
+
+    <div class="result-section" id="resultSection">
+        <div class="card">
+            <h3 style="color:#10B981; margin-bottom:12px;">Pose Estimation Output</h3>
+            <video class="main-video" id="mainVideo" controls></video>
+            <div class="download-row">
+                <a class="download-btn" id="downloadBtn" download>Download Video</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <p class="pipeline-label">Image Processing Pipeline Stages (click to play)</p>
+            <div class="pipeline-grid" id="pipelineGrid">
+                <div class="pipeline-card" data-key="canny">
+                    <video id="vid_canny" muted loop></video>
+                    <div class="label"><strong>Canny</strong> Edge Detection</div>
+                </div>
+                <div class="pipeline-card" data-key="skin">
+                    <video id="vid_skin" muted loop></video>
+                    <div class="label"><strong>HSV</strong> Skin Segmentation</div>
+                </div>
+                <div class="pipeline-card" data-key="sobel">
+                    <video id="vid_sobel" muted loop></video>
+                    <div class="label"><strong>Sobel</strong> Gradient Magnitude</div>
+                </div>
+                <div class="pipeline-card" data-key="heatmap">
+                    <video id="vid_heatmap" muted loop></video>
+                    <div class="label"><strong>Heatmap</strong> Joint Probability Overlay</div>
+                </div>
+                <div class="pipeline-card" data-key="features">
+                    <video id="vid_features" muted loop></video>
+                    <div class="label"><strong>CNN</strong> Feature Activations</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer>GymPose-Lite | BCSE417L Machine Vision | Arnav Sinha</footer>
+
+<script>
+const fileInput = document.getElementById('videoInput');
+const fileName = document.getElementById('fileName');
+const processBtn = document.getElementById('processBtn');
+const progressSection = document.getElementById('progressSection');
+const progressBar = document.getElementById('progressBar');
+const progressText = document.getElementById('progressText');
+const resultSection = document.getElementById('resultSection');
+const mainVideo = document.getElementById('mainVideo');
+const downloadBtn = document.getElementById('downloadBtn');
+const errorMsg = document.getElementById('errorMsg');
+
+fileInput.addEventListener('change', () => {
+    if (fileInput.files.length > 0) {
+        fileName.textContent = fileInput.files[0].name;
+        fileName.style.display = 'block';
+        processBtn.disabled = false;
+        resultSection.style.display = 'none';
+        errorMsg.style.display = 'none';
+    }
+});
+
+// Pipeline card click to play/pause
+document.querySelectorAll('.pipeline-card').forEach(card => {
+    card.addEventListener('click', () => {
+        const video = card.querySelector('video');
+        if (video.paused) video.play();
+        else video.pause();
+    });
+});
+
+async function processVideo() {
+    const file = fileInput.files[0];
+    if (!file) { alert('Please select a video file first'); return; }
+
+    const exercise = document.getElementById('exerciseSelect').value;
+    const formData = new FormData();
+    formData.append('video', file);
+    formData.append('exercise', exercise);
+
+    processBtn.disabled = true;
+    progressSection.style.display = 'block';
+    resultSection.style.display = 'none';
+    errorMsg.style.display = 'none';
+    progressBar.style.width = '0%';
+    progressText.textContent = 'Uploading...';
+
+    try {
+        const resp = await fetch('/api/process', { method: 'POST', body: formData });
+        const data = await resp.json();
+        if (data.error) { showError(data.error); return; }
+        pollStatus(data.job_id);
+    } catch (err) {
+        showError('Upload failed: ' + err.message);
+    }
+}
+
+function pollStatus(jobId) {
+    const interval = setInterval(async () => {
+        try {
+            const resp = await fetch(`/api/status/${jobId}`);
+            const data = await resp.json();
+
+            progressBar.style.width = data.progress + '%';
+            progressText.textContent = `Processing... ${data.progress}%`;
+
+            if (data.status === 'done') {
+                clearInterval(interval);
+                progressSection.style.display = 'none';
+                processBtn.disabled = false;
+
+                // Main video
+                const mainUrl = `/static/processed/${data.outputs.main}`;
+                mainVideo.src = mainUrl;
+                downloadBtn.href = mainUrl;
+                downloadBtn.download = data.outputs.main;
+
+                // Pipeline videos
+                for (const [key, filename] of Object.entries(data.outputs)) {
+                    if (key === 'main') continue;
+                    const vid = document.getElementById(`vid_${key}`);
+                    if (vid) vid.src = `/static/processed/${filename}`;
+                }
+
+                resultSection.style.display = 'block';
+            } else if (data.status === 'error') {
+                clearInterval(interval);
+                showError(data.error || 'Processing failed');
+            }
+        } catch (err) {
+            clearInterval(interval);
+            showError('Connection lost');
+        }
+    }, 1000);
+}
+
+function showError(msg) {
+    errorMsg.textContent = msg;
+    errorMsg.style.display = 'block';
+    progressSection.style.display = 'none';
+    processBtn.disabled = false;
+}
+</script>
+</body>
+</html>
