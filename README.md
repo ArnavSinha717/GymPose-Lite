@@ -164,7 +164,7 @@ GymPose-Lite/
 
 ## Credits
 
-Course project for Machine Vision at VIT Vellore (2026) by **Arnav Sinha** and **Shivam Bhansali**.
+Built by **Arnav Sinha** as a project for the Machine Vision course at VIT Vellore (2026).
 
 Built with PyTorch and torchvision. The teacher (KeypointRCNN-ResNet50-FPN), the person detector (Faster R-CNN MobileNetV3-Large FPN) and the ImageNet-pretrained MobileNetV3-Large backbone weights come from torchvision. Training crops come from the COCO 2017 keypoints dataset.
 
